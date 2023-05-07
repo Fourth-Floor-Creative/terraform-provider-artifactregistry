@@ -20,7 +20,6 @@ func New() *schema.Provider {
 }
 
 var requiredConfig = []string{
-	"credentialsJSON",
 	"project_id",
 	"location",
 	"repository",
@@ -32,11 +31,10 @@ func configureProvider(ctx context.Context, d *schema.ResourceData) (interface{}
 			return nil, diag.Errorf("missing required configuration '%s'", key)
 		}
 	}
-	credentialsJSON := d.Get("credentialsJSON").(string)
 
-	credentials, err := google.CredentialsFromJSON(ctx, []byte(credentialsJSON), "https://www.googleapis.com/auth/bigquery")
+	credentials, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/cloud-platform.read-only")
 	if err != nil {
-		log.Fatal(err)
+		return nil, nil
 	}
 
 	client, err := artifactregistrydockerimagesclient.NewClient(nil, &artifactregistrydockerimagesclient.Options{
