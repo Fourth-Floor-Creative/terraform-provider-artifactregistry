@@ -16,11 +16,22 @@ func New() *schema.Provider {
 			"artifact_registry_images": dataSourceImages(),
 		},
 		ConfigureContextFunc: configureProvider,
+		Schema: map[string]*schema.Schema{
+			"project": {
+				Type: schema.TypeString,
+			},
+			"location": {
+				Type: schema.TypeString,
+			},
+			"repository": {
+				Type: schema.TypeString,
+			},
+		},
 	}
 }
 
 var requiredConfig = []string{
-	"project_id",
+	"project",
 	"location",
 	"repository",
 }
@@ -39,7 +50,7 @@ func configureProvider(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	client, err := artifactregistrydockerimagesclient.NewClient(nil, &artifactregistrydockerimagesclient.Options{
 		Credentials: credentials,
-		ProjectID:   d.Get("project_id").(string),
+		ProjectID:   d.Get("project").(string),
 		Location:    d.Get("location").(string),
 		Repository:  d.Get("repository").(string),
 	})
