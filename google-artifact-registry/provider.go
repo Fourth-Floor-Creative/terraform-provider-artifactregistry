@@ -19,7 +19,19 @@ func New() *schema.Provider {
 	}
 }
 
+var requiredConfig = []string{
+	"project_id",
+	"location",
+	"repository",
+}
+
 func configureProvider(ctx context.Context, d *schema.ResourceData) (interface{}, diag.Diagnostics) {
+	for _, key := range requiredConfig {
+		if _, ok := d.GetOk(key); !ok {
+			return nil, diag.Errorf("missing required configuration '%s'", key)
+		}
+	}
+
 	credentials, err := google.FindDefaultCredentials(ctx, "https://www.googleapis.com/auth/cloud-platform", "https://www.googleapis.com/auth/cloud-platform.read-only")
 	if err != nil {
 		return nil, nil
@@ -27,7 +39,7 @@ func configureProvider(ctx context.Context, d *schema.ResourceData) (interface{}
 
 	client, err := artifactregistrydockerimagesclient.NewClient(nil, &artifactregistrydockerimagesclient.Options{
 		Credentials: credentials,
-		ProjectID:   d.Get("project").(string),
+		ProjectID:   d.Get("project_id").(string),
 		Location:    d.Get("location").(string),
 		Repository:  d.Get("repository").(string),
 	})
