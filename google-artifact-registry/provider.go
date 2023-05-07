@@ -18,13 +18,19 @@ func New() *schema.Provider {
 		ConfigureContextFunc: configureProvider,
 		Schema: map[string]*schema.Schema{
 			"project": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The project ID where the Artifact Registry repository is located.",
 			},
 			"location": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The location of the Artifact Registry repository.",
 			},
 			"repository": {
-				Type: schema.TypeString,
+				Type:        schema.TypeString,
+				Required:    true,
+				Description: "The name of the Artifact Registry repository.",
 			},
 		},
 	}
