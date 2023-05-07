@@ -57,11 +57,11 @@ func dataSourceImages() *schema.Resource {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"BuildTime": {
+						"build_time": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
-						"UpdateTime": {
+						"update_time": {
 							Type:     schema.TypeString,
 							Computed: true,
 						},
