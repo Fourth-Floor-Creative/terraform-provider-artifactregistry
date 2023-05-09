@@ -105,10 +105,13 @@ func (c *Client) ListImages(ctx context.Context) ([]DockerImage, error) {
 	var nextPageToken string
 	for hasNextPage {
 		var listImagesResponse ListImagesResponse
-		res := c.R().SetURL(fmt.Sprintf("projects/%s/locations/%s/repositories/%s/dockerImages/*", c.ProjectID, c.Location, c.Repository)).
+		request := c.R().SetURL(fmt.Sprintf("projects/%s/locations/%s/repositories/%s/dockerImages/", c.ProjectID, c.Location, c.Repository)).
 			SetSuccessResult(&listImagesResponse).
-			SetQueryParam("pageToken", nextPageToken).
-			Do(ctx)
+			SetQueryParam("pageSize", "200")
+		if nextPageToken != "" {
+			request.SetQueryParam("pageToken", nextPageToken)
+		}
+		res := request.Do(ctx)
 		if res.IsErrorState() {
 			return nil, res.Err
 		}

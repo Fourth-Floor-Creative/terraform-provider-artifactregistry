@@ -41,7 +41,7 @@ type ArtifactRegistryProviderModel struct {
 }
 
 func (p *ArtifactRegistryProvider) Metadata(ctx context.Context, req provider.MetadataRequest, resp *provider.MetadataResponse) {
-	resp.TypeName = "container_registry"
+	resp.TypeName = "artifactregistry"
 	resp.Version = p.version
 }
 
@@ -84,7 +84,9 @@ func (p *ArtifactRegistryProvider) Configure(ctx context.Context, req provider.C
 		Location:    data.Location.ValueString(),
 		Repository:  data.Repository.ValueString(),
 	})
-
+	if err != nil {
+		resp.Diagnostics.Append(diag.NewErrorDiagnostic("failed to create Artifact Registry client", err.Error()))
+	}
 	resp.DataSourceData = registryAPIClient
 	resp.ResourceData = registryAPIClient
 }

@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"fmt"
 	artifactregistrydockerimagesclient "github.com/Fourth-Floor-Creative/terraform-provider-artifact-registry/artifact-registry-docker-images-client"
 	"github.com/hashicorp/terraform-plugin-framework/attr"
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
@@ -28,8 +29,8 @@ type ArtifactRegistryImagesDataSourceModel struct {
 	Images []CustomImageValue `tfsdk:"images"`
 }
 
-func (a ArtifactRegistryImagesDataSource) Metadata(ctx context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
-	response.TypeName = "google_artifact_registry_images"
+func (a *ArtifactRegistryImagesDataSource) Metadata(ctx context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
+	response.TypeName = request.ProviderTypeName + "_artifact_registry_images"
 }
 
 type CustomImageValueType struct {
@@ -53,13 +54,20 @@ type ImageListType struct {
 	types.ListType
 }
 
+type ImageListValue struct {
+	types.List
+}
+
 func (ilt ImageListType) ElementType() attr.Type {
 	return CustomImageValueType{}
 }
 
 func (ilt ImageListType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
-	//TODO implement me
-	return nil, nil
+	val, err := ilt.ListType.ValueFromTerraform(ctx, in)
+
+	return ImageListValue{
+		List: val.(types.List),
+	}, err
 }
 
 type CustomImageValue struct {
@@ -74,7 +82,27 @@ type CustomImageValue struct {
 	UpdateTime     string   `tfsdk:"update_time"`
 }
 
-func (a ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request datasource.SchemaRequest, response *datasource.SchemaResponse) {
+func (a *ArtifactRegistryImagesDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
+	// Prevent panic if the provider has not been configured.
+	if req.ProviderData == nil {
+		return
+	}
+
+	client, ok := req.ProviderData.(*artifactregistrydockerimagesclient.Client)
+
+	if !ok {
+		resp.Diagnostics.AddError(
+			"Unexpected Data Source Configure Type",
+			fmt.Sprintf("Expected *artifactregistrydockerimagesclient.Client, got: %T. Please report this issue to the provider developers.", req.ProviderData),
+		)
+
+		return
+	}
+
+	a.client = client
+}
+
+func (a *ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request datasource.SchemaRequest, response *datasource.SchemaResponse) {
 	response.Schema = schema.Schema{
 		MarkdownDescription: "This data source provides a list of images in a repository.",
 		Attributes: map[string]schema.Attribute{
@@ -133,7 +161,7 @@ func (a ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request da
 	}
 }
 
-func (a ArtifactRegistryImagesDataSource) Read(ctx context.Context, request datasource.ReadRequest, response *datasource.ReadResponse) {
+func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request datasource.ReadRequest, response *datasource.ReadResponse) {
 	var data ArtifactRegistryImagesDataSourceModel
 	response.Diagnostics.Append(request.Config.Get(ctx, &data)...)
 

@@ -7,22 +7,25 @@ import (
 )
 
 func TestAccExampleDataSource(t *testing.T) {
+	config := `
+provider "artifactregistry" {
+	project = "devops-339608"
+	location = "europe"
+	repository = "services"
+}
+data "artifactregistry_artifact_registry_images" "test" {}
+`
 	resource.Test(t, resource.TestCase{
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
 			// Read testing
 			{
-				Config: testAccExampleDataSourceConfig,
+				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.google_artifact_registry_images.test", "id", "example-id"),
+					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "id", "example-id"),
 				),
 			},
 		},
 	})
 }
-
-const testAccExampleDataSourceConfig = `
-data "google_artifact_registry_images" "test" {
-}
-`
