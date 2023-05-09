@@ -13,7 +13,7 @@ func dataSourceImages() *schema.Resource {
 	return &schema.Resource{
 		ReadContext: dataSourceImagesRead,
 		Schema: map[string]*schema.Schema{
-			"project_id": {
+			"project": {
 				Type:     schema.TypeString,
 				Required: true,
 			},
@@ -74,7 +74,8 @@ func dataSourceImages() *schema.Resource {
 
 func dataSourceImagesRead(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	client := meta.(*artifact_registry_docker_images_client.Client)
-	projectID := d.Get("project_id").(string)
+
+	projectID := d.Get("project").(string)
 	location := d.Get("location").(string)
 	repository := d.Get("repository").(string)
 
