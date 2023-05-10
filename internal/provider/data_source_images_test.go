@@ -23,7 +23,7 @@ data "artifactregistry_artifact_registry_images" "test" {}
 			{
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "id", "example-id"),
+					resource.TestCheckResourceAttrSet("data.artifactregistry_artifact_registry_images.test", "images"),
 				),
 			},
 		},

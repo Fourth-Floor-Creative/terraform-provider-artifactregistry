@@ -28,6 +28,7 @@ type ArtifactRegistryImagesDataSource struct {
 // ArtifactRegistryImagesDataSourceModel defines the data source model.
 type ArtifactRegistryImagesDataSourceModel struct {
 	Images CustomImageValue `tfsdk:"images"`
+	ID     types.String     `tfsdk:"id"`
 }
 
 func (a *ArtifactRegistryImagesDataSource) Metadata(ctx context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
@@ -154,6 +155,9 @@ func (a *ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request d
 	response.Schema = schema.Schema{
 		MarkdownDescription: "This data source provides a list of images in a repository.",
 		Attributes: map[string]schema.Attribute{
+			"id": schema.StringAttribute{
+				Computed: true,
+			},
 			"images": schema.ListNestedAttribute{
 				Computed:    true,
 				Description: "The list of images in the repository.",
@@ -216,7 +220,6 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 		response.Diagnostics.Append(diag.NewErrorDiagnostic("failed to list images", err.Error()))
 		return
 	}
-
 	// Convert this data to a list of CustomImageValue
 	var imagesList []attr.Value
 	for _, image := range images {
@@ -234,5 +237,10 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 
 		imagesList = append(imagesList, imageValue)
 	}
+
+	id := fmt.Sprintf("%s/%s/%s", client.ProjectID, client.Location, client.Repository)
+	idAsStringType := tftypes.NewValue(tftypes.String, id)
+	response.State.SetAttribute(ctx, path.Root("id"), idAsStringType)
+
 	response.State.SetAttribute(ctx, path.Root("images"), imagesList)
 }
