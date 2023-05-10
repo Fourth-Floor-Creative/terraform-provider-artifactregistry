@@ -8,6 +8,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/datasource"
 	"github.com/hashicorp/terraform-plugin-framework/datasource/schema"
 	"github.com/hashicorp/terraform-plugin-framework/diag"
+	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
 )
@@ -26,7 +27,7 @@ type ArtifactRegistryImagesDataSource struct {
 
 // ArtifactRegistryImagesDataSourceModel defines the data source model.
 type ArtifactRegistryImagesDataSourceModel struct {
-	Images []CustomImageValue `tfsdk:"images"`
+	Images CustomImageValue `tfsdk:"images"`
 }
 
 func (a *ArtifactRegistryImagesDataSource) Metadata(ctx context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
@@ -54,20 +55,32 @@ type ImageListType struct {
 	types.ListType
 }
 
+var _ attr.Type = ImageListType{}
+
 type ImageListValue struct {
 	types.List
 }
+
+var _ attr.Value = ImageListValue{}
 
 func (ilt ImageListType) ElementType() attr.Type {
 	return CustomImageValueType{}
 }
 
 func (ilt ImageListType) ValueFromTerraform(ctx context.Context, in tftypes.Value) (attr.Value, error) {
+	if !in.IsKnown() || in.IsNull() {
+		return ImageListValue{}, nil
+	}
 	val, err := ilt.ListType.ValueFromTerraform(ctx, in)
-
+	if err != nil {
+		return nil, err
+	}
+	if val == nil {
+		return ImageListValue{}, nil
+	}
 	return ImageListValue{
 		List: val.(types.List),
-	}, err
+	}, nil
 }
 
 type CustomImageValue struct {
@@ -80,6 +93,41 @@ type CustomImageValue struct {
 	MediaType      string   `tfsdk:"media_type"`
 	BuildTime      string   `tfsdk:"build_time"`
 	UpdateTime     string   `tfsdk:"update_time"`
+}
+
+func (v CustomImageValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
+	tags := make([]tftypes.Value, 0, len(v.Tags))
+	for _, tag := range v.Tags {
+		tags = append(tags, tftypes.NewValue(tftypes.String, tag))
+	}
+
+	result := tftypes.NewValue(tftypes.Object{
+		AttributeTypes: map[string]tftypes.Type{
+			"name":             tftypes.String,
+			"uri":              tftypes.String,
+			"tags":             tftypes.List{ElementType: tftypes.DynamicPseudoType},
+			"image_size_bytes": tftypes.String,
+			"upload_time":      tftypes.String,
+			"media_type":       tftypes.String,
+			"build_time":       tftypes.String,
+			"update_time":      tftypes.String,
+		},
+	}, map[string]tftypes.Value{
+		"name":             tftypes.NewValue(tftypes.String, v.Name),
+		"uri":              tftypes.NewValue(tftypes.String, v.URI),
+		"tags":             tftypes.NewValue(tftypes.List{ElementType: tftypes.DynamicPseudoType}, tags),
+		"image_size_bytes": tftypes.NewValue(tftypes.String, v.ImageSizeBytes),
+		"upload_time":      tftypes.NewValue(tftypes.String, v.UploadTime),
+		"media_type":       tftypes.NewValue(tftypes.String, v.MediaType),
+		"build_time":       tftypes.NewValue(tftypes.String, v.BuildTime),
+		"update_time":      tftypes.NewValue(tftypes.String, v.UpdateTime),
+	})
+
+	return result, nil
+}
+
+func (v CustomImageValue) Type(ctx context.Context) attr.Type {
+	return CustomImageValueType{}
 }
 
 func (a *ArtifactRegistryImagesDataSource) Configure(ctx context.Context, req datasource.ConfigureRequest, resp *datasource.ConfigureResponse) {
@@ -162,13 +210,6 @@ func (a *ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request d
 }
 
 func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request datasource.ReadRequest, response *datasource.ReadResponse) {
-	var data ArtifactRegistryImagesDataSourceModel
-	response.Diagnostics.Append(request.Config.Get(ctx, &data)...)
-
-	if response.Diagnostics.HasError() {
-		return
-	}
-
 	client := a.client
 	images, err := client.ListImages(ctx)
 	if err != nil {
@@ -176,9 +217,11 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 		return
 	}
 
-	data.Images = make([]CustomImageValue, len(images))
-	for i, image := range images {
-		data.Images[i] = CustomImageValue{
+	// Convert this data to a list of CustomImageValue
+	var imagesList []attr.Value
+	for _, image := range images {
+		// Create a CustomImageValue for each image
+		imageValue := CustomImageValue{
 			Name:           image.Name,
 			URI:            image.Uri,
 			Tags:           image.Tags,
@@ -188,14 +231,8 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 			BuildTime:      image.BuildTime,
 			UpdateTime:     image.UpdateTime,
 		}
-	}
 
-	// Add the images to the response
-	diagnostic := response.State.Set(ctx, &data)
-	if diagnostic.HasError() {
-		response.Diagnostics.Append(diag.NewErrorDiagnostic("failed to set images", "failed to set images"))
-		return
+		imagesList = append(imagesList, imageValue)
 	}
-
-	response.Diagnostics.Append(response.State.Set(ctx, &data)...)
+	response.State.SetAttribute(ctx, path.Root("images"), imagesList)
 }
