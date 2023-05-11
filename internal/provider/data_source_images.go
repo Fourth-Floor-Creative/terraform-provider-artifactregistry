@@ -106,7 +106,7 @@ func (v CustomImageValue) ToTerraformValue(ctx context.Context) (tftypes.Value, 
 		AttributeTypes: map[string]tftypes.Type{
 			"name":             tftypes.String,
 			"uri":              tftypes.String,
-			"tags":             tftypes.List{ElementType: tftypes.DynamicPseudoType},
+			"tags":             tftypes.List{ElementType: tftypes.String},
 			"image_size_bytes": tftypes.String,
 			"upload_time":      tftypes.String,
 			"media_type":       tftypes.String,
@@ -116,7 +116,7 @@ func (v CustomImageValue) ToTerraformValue(ctx context.Context) (tftypes.Value, 
 	}, map[string]tftypes.Value{
 		"name":             tftypes.NewValue(tftypes.String, v.Name),
 		"uri":              tftypes.NewValue(tftypes.String, v.URI),
-		"tags":             tftypes.NewValue(tftypes.List{ElementType: tftypes.DynamicPseudoType}, tags),
+		"tags":             tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tags),
 		"image_size_bytes": tftypes.NewValue(tftypes.String, v.ImageSizeBytes),
 		"upload_time":      tftypes.NewValue(tftypes.String, v.UploadTime),
 		"media_type":       tftypes.NewValue(tftypes.String, v.MediaType),
@@ -239,8 +239,7 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 	}
 
 	id := fmt.Sprintf("%s/%s/%s", client.ProjectID, client.Location, client.Repository)
-	idAsStringType := tftypes.NewValue(tftypes.String, id)
-	diags := response.State.SetAttribute(ctx, path.Root("id"), idAsStringType)
+	diags := response.State.SetAttribute(ctx, path.Root("id"), id)
 	response.Diagnostics.Append(diags...)
 	if response.Diagnostics.HasError() {
 		return
