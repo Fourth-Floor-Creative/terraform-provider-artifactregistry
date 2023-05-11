@@ -240,7 +240,14 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 
 	id := fmt.Sprintf("%s/%s/%s", client.ProjectID, client.Location, client.Repository)
 	idAsStringType := tftypes.NewValue(tftypes.String, id)
-	response.State.SetAttribute(ctx, path.Root("id"), idAsStringType)
-
-	response.State.SetAttribute(ctx, path.Root("images"), imagesList)
+	diags := response.State.SetAttribute(ctx, path.Root("id"), idAsStringType)
+	response.Diagnostics.Append(diags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+	diags = response.State.SetAttribute(ctx, path.Root("images"), imagesList)
+	response.Diagnostics.Append(diags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
 }
