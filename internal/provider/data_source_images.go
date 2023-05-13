@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"strings"
 	"time"
 )
 
@@ -300,7 +301,12 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 func mapLatestImages(images []artifactregistrydockerimagesclient.DockerImage) (map[string]artifactregistrydockerimagesclient.DockerImage, error) {
 	latestImages := make(map[string]artifactregistrydockerimagesclient.DockerImage)
 	for _, image := range images {
-		latestImage, ok := latestImages[image.Name]
+		serviceName := strings.Replace(image.Name, "projects/devops-339608/locations/europe/repositories/services/dockerImages/", "", -1)
+		serviceName = strings.Split(serviceName, "@")[0]
+		latestImage, ok := latestImages[serviceName]
+		if !ok {
+			latestImage = image
+		}
 		if image.UploadTime == "" || latestImage.UploadTime == "" {
 			continue
 		}
@@ -313,9 +319,9 @@ func mapLatestImages(images []artifactregistrydockerimagesclient.DockerImage) (m
 			return nil, err
 		}
 		if !ok {
-			latestImages[image.Name] = image
+			latestImages[serviceName] = image
 		} else if imageUploadTime.After(latestImageUploadTime) {
-			latestImages[image.Name] = image
+			latestImages[serviceName] = image
 		}
 	}
 	return latestImages, nil

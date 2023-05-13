@@ -26,6 +26,12 @@ data "artifactregistry_artifact_registry_images" "test" {}
 					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "images.0.%", "8"),
 				),
 			},
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "latest_images.0.%", "8"),
+				),
+			},
 		},
 	})
 }
