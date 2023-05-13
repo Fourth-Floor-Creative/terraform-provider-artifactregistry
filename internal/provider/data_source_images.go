@@ -11,6 +11,7 @@ import (
 	"github.com/hashicorp/terraform-plugin-framework/path"
 	"github.com/hashicorp/terraform-plugin-framework/types"
 	"github.com/hashicorp/terraform-plugin-go/tftypes"
+	"time"
 )
 
 // Ensure provider defined types fully satisfy framework interfaces.
@@ -27,8 +28,9 @@ type ArtifactRegistryImagesDataSource struct {
 
 // ArtifactRegistryImagesDataSourceModel defines the data source model.
 type ArtifactRegistryImagesDataSourceModel struct {
-	Images CustomImageValue `tfsdk:"images"`
-	ID     types.String     `tfsdk:"id"`
+	Images       CustomImageValue `tfsdk:"images"`
+	LatestImages CustomImageValue `tfsdk:"latest_images"`
+	ID           types.String     `tfsdk:"id"`
 }
 
 func (a *ArtifactRegistryImagesDataSource) Metadata(ctx context.Context, request datasource.MetadataRequest, response *datasource.MetadataResponse) {
@@ -158,6 +160,38 @@ func (a *ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request d
 			"id": schema.StringAttribute{
 				Computed: true,
 			},
+			"latest_images": schema.MapNestedAttribute{
+				NestedObject: schema.NestedAttributeObject{
+					Attributes: map[string]schema.Attribute{
+						"name": schema.StringAttribute{
+							Computed: true,
+						},
+						"uri": schema.StringAttribute{
+							Computed: true,
+						},
+						"tags": schema.ListAttribute{
+							Computed:    true,
+							ElementType: types.StringType,
+						},
+						"image_size_bytes": schema.StringAttribute{
+							Computed: true,
+						},
+						"upload_time": schema.StringAttribute{
+							Computed: true,
+						},
+						"media_type": schema.StringAttribute{
+							Computed: true,
+						},
+						"build_time": schema.StringAttribute{
+							Computed: true,
+						},
+						"update_time": schema.StringAttribute{
+							Computed: true,
+						},
+					},
+				},
+				Computed: true,
+			},
 			"images": schema.ListNestedAttribute{
 				Computed:    true,
 				Description: "The list of images in the repository.",
@@ -220,6 +254,13 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 		response.Diagnostics.Append(diag.NewErrorDiagnostic("failed to list images", err.Error()))
 		return
 	}
+
+	latestImages, err := mapLatestImages(images)
+	if err != nil {
+		response.Diagnostics.Append(diag.NewErrorDiagnostic("failed to map latest images", err.Error()))
+		return
+	}
+
 	// Convert this data to a list of CustomImageValue
 	var imagesList []attr.Value
 	for _, image := range images {
@@ -249,4 +290,33 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 	if response.Diagnostics.HasError() {
 		return
 	}
+	diags = response.State.SetAttribute(ctx, path.Root("latest_images"), latestImages)
+	response.Diagnostics.Append(diags...)
+	if response.Diagnostics.HasError() {
+		return
+	}
+}
+
+func mapLatestImages(images []artifactregistrydockerimagesclient.DockerImage) (map[string]artifactregistrydockerimagesclient.DockerImage, error) {
+	latestImages := make(map[string]artifactregistrydockerimagesclient.DockerImage)
+	for _, image := range images {
+		latestImage, ok := latestImages[image.Name]
+		if image.UploadTime == "" || latestImage.UploadTime == "" {
+			continue
+		}
+		imageUploadTime, err := time.Parse(time.RFC3339, image.UploadTime)
+		if err != nil {
+			return nil, err
+		}
+		latestImageUploadTime, err := time.Parse(time.RFC3339, latestImage.UploadTime)
+		if err != nil {
+			return nil, err
+		}
+		if !ok {
+			latestImages[image.Name] = image
+		} else if imageUploadTime.After(latestImageUploadTime) {
+			latestImages[image.Name] = image
+		}
+	}
+	return latestImages, nil
 }
