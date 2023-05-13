@@ -298,7 +298,7 @@ func (a *ArtifactRegistryImagesDataSource) Read(ctx context.Context, request dat
 	}
 }
 
-func mapLatestImages(images []artifactregistrydockerimagesclient.DockerImage) (map[string]artifactregistrydockerimagesclient.DockerImage, error) {
+func mapLatestImages(images []artifactregistrydockerimagesclient.DockerImage) (map[string]attr.Value, error) {
 	latestImages := make(map[string]artifactregistrydockerimagesclient.DockerImage)
 	for _, image := range images {
 		serviceName := strings.Replace(image.Name, "projects/devops-339608/locations/europe/repositories/services/dockerImages/", "", -1)
@@ -324,5 +324,22 @@ func mapLatestImages(images []artifactregistrydockerimagesclient.DockerImage) (m
 			latestImages[serviceName] = image
 		}
 	}
-	return latestImages, nil
+	// Convert this data to a list of CustomImageValue
+	var convertedMap = make(map[string]attr.Value)
+	for serviceName, image := range latestImages {
+		// Create a CustomImageValue for each image
+		imageValue := CustomImageValue{
+			Name:           image.Name,
+			URI:            image.Uri,
+			Tags:           image.Tags,
+			ImageSizeBytes: image.ImageSizeBytes,
+			UploadTime:     image.UploadTime,
+			MediaType:      image.MediaType,
+			BuildTime:      image.BuildTime,
+			UpdateTime:     image.UpdateTime,
+		}
+		// Get the key for the map
+		convertedMap[serviceName] = imageValue
+	}
+	return convertedMap, nil
 }

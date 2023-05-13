@@ -29,7 +29,7 @@ data "artifactregistry_artifact_registry_images" "test" {}
 			{
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "latest_images.0.%", "8"),
+					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "latest_images.campaign-service.%", "8"),
 				),
 			},
 		},
