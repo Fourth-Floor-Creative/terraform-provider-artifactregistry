@@ -89,14 +89,15 @@ func (ilt ImageListType) ValueFromTerraform(ctx context.Context, in tftypes.Valu
 
 type CustomImageValue struct {
 	types.List
-	Name           string   `tfsdk:"name"`
-	URI            string   `tfsdk:"uri"`
-	Tags           []string `tfsdk:"tags"`
-	ImageSizeBytes string   `tfsdk:"image_size_bytes"`
-	UploadTime     string   `tfsdk:"upload_time"`
-	MediaType      string   `tfsdk:"media_type"`
-	BuildTime      string   `tfsdk:"build_time"`
-	UpdateTime     string   `tfsdk:"update_time"`
+	Name                 string   `tfsdk:"name"`
+	URI                  string   `tfsdk:"uri"`
+	Tags                 []string `tfsdk:"tags"`
+	DevelopmentTaggedURI string   `tfsdk:"development_tagged_uri"`
+	ImageSizeBytes       string   `tfsdk:"image_size_bytes"`
+	UploadTime           string   `tfsdk:"upload_time"`
+	MediaType            string   `tfsdk:"media_type"`
+	BuildTime            string   `tfsdk:"build_time"`
+	UpdateTime           string   `tfsdk:"update_time"`
 }
 
 func (v CustomImageValue) ToTerraformValue(ctx context.Context) (tftypes.Value, error) {
@@ -107,24 +108,26 @@ func (v CustomImageValue) ToTerraformValue(ctx context.Context) (tftypes.Value, 
 
 	result := tftypes.NewValue(tftypes.Object{
 		AttributeTypes: map[string]tftypes.Type{
-			"name":             tftypes.String,
-			"uri":              tftypes.String,
-			"tags":             tftypes.List{ElementType: tftypes.String},
-			"image_size_bytes": tftypes.String,
-			"upload_time":      tftypes.String,
-			"media_type":       tftypes.String,
-			"build_time":       tftypes.String,
-			"update_time":      tftypes.String,
+			"name":                   tftypes.String,
+			"uri":                    tftypes.String,
+			"development_tagged_uri": tftypes.String,
+			"tags":                   tftypes.List{ElementType: tftypes.String},
+			"image_size_bytes":       tftypes.String,
+			"upload_time":            tftypes.String,
+			"media_type":             tftypes.String,
+			"build_time":             tftypes.String,
+			"update_time":            tftypes.String,
 		},
 	}, map[string]tftypes.Value{
-		"name":             tftypes.NewValue(tftypes.String, v.Name),
-		"uri":              tftypes.NewValue(tftypes.String, v.URI),
-		"tags":             tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tags),
-		"image_size_bytes": tftypes.NewValue(tftypes.String, v.ImageSizeBytes),
-		"upload_time":      tftypes.NewValue(tftypes.String, v.UploadTime),
-		"media_type":       tftypes.NewValue(tftypes.String, v.MediaType),
-		"build_time":       tftypes.NewValue(tftypes.String, v.BuildTime),
-		"update_time":      tftypes.NewValue(tftypes.String, v.UpdateTime),
+		"name":                   tftypes.NewValue(tftypes.String, v.Name),
+		"uri":                    tftypes.NewValue(tftypes.String, v.URI),
+		"development_tagged_uri": tftypes.NewValue(tftypes.String, v.DevelopmentTaggedURI),
+		"tags":                   tftypes.NewValue(tftypes.List{ElementType: tftypes.String}, tags),
+		"image_size_bytes":       tftypes.NewValue(tftypes.String, v.ImageSizeBytes),
+		"upload_time":            tftypes.NewValue(tftypes.String, v.UploadTime),
+		"media_type":             tftypes.NewValue(tftypes.String, v.MediaType),
+		"build_time":             tftypes.NewValue(tftypes.String, v.BuildTime),
+		"update_time":            tftypes.NewValue(tftypes.String, v.UpdateTime),
 	})
 
 	return result, nil
@@ -170,6 +173,9 @@ func (a *ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request d
 						"uri": schema.StringAttribute{
 							Computed: true,
 						},
+						"development_tagged_uri": schema.StringAttribute{
+							Computed: true,
+						},
 						"tags": schema.ListAttribute{
 							Computed:    true,
 							ElementType: types.StringType,
@@ -200,8 +206,9 @@ func (a *ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request d
 					types.ListType{
 						ElemType: types.ObjectType{
 							AttrTypes: map[string]attr.Type{
-								"name": types.StringType,
-								"uri":  types.StringType,
+								"name":                   types.StringType,
+								"uri":                    types.StringType,
+								"development_tagged_uri": types.StringType,
 								"tags": types.ListType{
 									ElemType: types.StringType,
 								},
@@ -220,6 +227,9 @@ func (a *ArtifactRegistryImagesDataSource) Schema(ctx context.Context, request d
 							Computed: true,
 						},
 						"uri": schema.StringAttribute{
+							Computed: true,
+						},
+						"development_tagged_uri": schema.StringAttribute{
 							Computed: true,
 						},
 						"tags": schema.ListAttribute{
@@ -305,9 +315,15 @@ func mapLatestImages(images []artifactregistrydockerimagesclient.DockerImage) (m
 		serviceName = strings.Split(serviceName, "@")[0]
 		latestImage, ok := latestImages[serviceName]
 		if !ok {
+			if !hasDevelopmentTag(image) {
+				continue
+			}
 			latestImage = image
 		}
 		if image.UploadTime == "" || latestImage.UploadTime == "" {
+			continue
+		}
+		if !hasDevelopmentTag(image) {
 			continue
 		}
 		imageUploadTime, err := time.Parse(time.RFC3339, image.UploadTime)
@@ -327,19 +343,39 @@ func mapLatestImages(images []artifactregistrydockerimagesclient.DockerImage) (m
 	// Convert this data to a list of CustomImageValue
 	var convertedMap = make(map[string]attr.Value)
 	for serviceName, image := range latestImages {
-		// Create a CustomImageValue for each image
+		developmentTaggedURI := fmt.Sprintf("%s:%s", strings.Split(image.Uri, "@")[0], getDevelopmentTag(image))
 		imageValue := CustomImageValue{
-			Name:           image.Name,
-			URI:            image.Uri,
-			Tags:           image.Tags,
-			ImageSizeBytes: image.ImageSizeBytes,
-			UploadTime:     image.UploadTime,
-			MediaType:      image.MediaType,
-			BuildTime:      image.BuildTime,
-			UpdateTime:     image.UpdateTime,
+			Name:                 image.Name,
+			URI:                  image.Uri,
+			Tags:                 image.Tags,
+			DevelopmentTaggedURI: developmentTaggedURI,
+			ImageSizeBytes:       image.ImageSizeBytes,
+			UploadTime:           image.UploadTime,
+			MediaType:            image.MediaType,
+			BuildTime:            image.BuildTime,
+			UpdateTime:           image.UpdateTime,
 		}
-		// Get the key for the map
 		convertedMap[serviceName] = imageValue
 	}
 	return convertedMap, nil
+}
+
+func hasDevelopmentTag(image artifactregistrydockerimagesclient.DockerImage) bool {
+	hasDevelopmentTag := false
+	for _, tag := range image.Tags {
+		if strings.HasPrefix(tag, "development") {
+			hasDevelopmentTag = true
+			break
+		}
+	}
+	return hasDevelopmentTag
+}
+
+func getDevelopmentTag(image artifactregistrydockerimagesclient.DockerImage) string {
+	for _, tag := range image.Tags {
+		if strings.HasPrefix(tag, "development") {
+			return tag
+		}
+	}
+	return ""
 }

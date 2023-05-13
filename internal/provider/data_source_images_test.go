@@ -19,17 +19,22 @@ data "artifactregistry_artifact_registry_images" "test" {}
 		PreCheck:                 func() { testAccPreCheck(t) },
 		ProtoV6ProviderFactories: testAccProtoV6ProviderFactories,
 		Steps: []resource.TestStep{
-			// Read testing
 			{
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "images.0.%", "8"),
+					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "images.0.%", "9"),
 				),
 			},
 			{
 				Config: config,
 				Check: resource.ComposeAggregateTestCheckFunc(
-					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "latest_images.campaign-service.%", "8"),
+					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "latest_images.campaign-service.%", "9"),
+				),
+			},
+			{
+				Config: config,
+				Check: resource.ComposeAggregateTestCheckFunc(
+					resource.TestCheckResourceAttr("data.artifactregistry_artifact_registry_images.test", "latest_images.campaign-service.development_tagged_uri", "europe-docker.pkg.dev/devops-339608/services/campaign-service:development-9681cde"),
 				),
 			},
 		},
